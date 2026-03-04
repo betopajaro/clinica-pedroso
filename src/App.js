@@ -217,12 +217,12 @@ function PhaseCard({phase,done,total,active,onClick}){
   );
 }
 
-function PhaseDetail({phase,checked,onToggle}){
+function PhaseDetail({phase,checked,onToggle,isMobile}){
   const [tab,setTab]=useState("tasks");
   const done = phase.tasks.filter(t=>checked[t.id]).length;
 
   return (
-    <div style={{flex:1,padding:"36px 40px",overflowY:"auto"}}>
+    <div style={{flex:1,padding: isMobile?"20px 16px":"36px 40px",overflowY:"auto"}}>
       {/* Header */}
       <div style={{marginBottom:28}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
@@ -414,80 +414,183 @@ globalStyle.innerHTML = '* { margin: 0; padding: 0; box-sizing: border-box; } bo
 document.head.appendChild(globalStyle);
 
 export default function App(){
-  const [active,setActive]=useState("f0");
-  const [checked,setChecked]=useState({});
-  const [loading,setLoading]=useState(true);
-  const [view,setView]=useState("phase"); // "phase" | "backlog"
+  const [active,setActive]   = useState("f0");
+  const [checked,setChecked] = useState({});
+  const [loading,setLoading] = useState(true);
+  const [view,setView]       = useState("phase");
+  const [menuOpen,setMenuOpen] = useState(false);
+  const [isMobile,setIsMobile] = useState(false);
+
+  useEffect(()=>{
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  },[]);
 
   useEffect(()=>{
     (async()=>{
-      const c=await db.get("strategy:checked");
-      if(c)setChecked(c);
+      const c = await db.get("strategy:checked");
+      if(c) setChecked(c);
       setLoading(false);
     })();
   },[]);
 
-  const toggle=async(id)=>{
-    const next={...checked,[id]:!checked[id]};
+  const toggle = async(id)=>{
+    const next = {...checked,[id]:!checked[id]};
     setChecked(next);
-    await db.set("strategy:checked",next);
+    await db.set("strategy:checked", next);
   };
 
-  const totalDone=Object.values(checked).filter(Boolean).length;
-  const activePhase=PHASES.find(p=>p.id===active);
+  const selectPhase = (id) => {
+    setActive(id);
+    setMenuOpen(false);
+  };
 
-  if(loading) return <div style={{minHeight:"100vh",background:bg,display:"flex",alignItems:"center",
-    justifyContent:"center",color:gold,fontFamily:"Georgia,serif"}}>Carregando…</div>;
+  const totalDone  = Object.values(checked).filter(Boolean).length;
+  const activePhase = PHASES.find(p=>p.id===active);
+
+  if(loading) return (
+    <div style={{minHeight:"100vh",background:bg,display:"flex",alignItems:"center",
+      justifyContent:"center",color:gold,fontFamily:"Georgia,serif"}}>Carregando…</div>
+  );
 
   return (
     <div style={{minHeight:"100vh",background:bg,color:txt,display:"flex",flexDirection:"column"}}>
-      {/* Top bar */}
-      <div style={{borderBottom:`1px solid ${border}`,padding:"16px 28px",
-        display:"flex",alignItems:"center",gap:16,background:"#0D0D0F"}}>
-        <div style={{flex:1}}>
-          <div style={{fontSize:10,letterSpacing:"0.3em",color:muted,fontFamily:sm}}>PLANO DE MARCA & ESTRATÉGIA</div>
-          <div style={{fontSize:18,fontFamily:"Georgia,serif",color:gold}}>Clínica Pedroso</div>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <div style={{fontSize:13,color:muted,fontFamily:sm}}>{totalDone}/{totalTasks} tarefas</div>
-          <div style={{width:120,height:4,background:"#ffffff08",borderRadius:2}}>
-            <div style={{height:4,background:gold,borderRadius:2,width:`${Math.round(totalDone/totalTasks*100)}%`}}/>
+
+      {/* ── Top bar ── */}
+      <div style={{borderBottom:`1px solid ${border}`,padding: isMobile?"12px 16px":"16px 28px",
+        display:"flex",alignItems:"center",gap:12,background:"#0D0D0F",position:"sticky",top:0,zIndex:100}}>
+
+        {/* Hamburger (mobile only) */}
+        {isMobile && view==="phase" && (
+          <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"none",border:`1px solid ${border}`,
+            borderRadius:6,color:menuOpen?gold:muted,cursor:"pointer",fontSize:18,
+            width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {menuOpen ? "✕" : "☰"}
+          </button>
+        )}
+
+        {/* Title */}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:9,letterSpacing:"0.25em",color:muted,fontFamily:sm,
+            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+            PLANO DE MARCA & ESTRATÉGIA
           </div>
-          <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>setView("phase")} style={{padding:"6px 14px",borderRadius:6,cursor:"pointer",
-              fontFamily:sm,fontSize:12,background:view==="phase"?gold:"transparent",
-              color:view==="phase"?bg:muted,border:`1px solid ${view==="phase"?gold:border}`}}>Por Fase</button>
-            <button onClick={()=>setView("backlog")} style={{padding:"6px 14px",borderRadius:6,cursor:"pointer",
-              fontFamily:sm,fontSize:12,background:view==="backlog"?gold:"transparent",
-              color:view==="backlog"?bg:muted,border:`1px solid ${view==="backlog"?gold:border}`}}>Backlog</button>
+          <div style={{fontSize: isMobile?15:18,fontFamily:"Georgia,serif",color:gold,
+            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+            Clínica Pedroso
+          </div>
+        </div>
+
+        {/* Progress + view toggle */}
+        <div style={{display:"flex",alignItems:"center",gap: isMobile?8:16,flexShrink:0}}>
+          {!isMobile && (
+            <>
+              <div style={{fontSize:13,color:muted,fontFamily:sm}}>{totalDone}/{totalTasks} tarefas</div>
+              <div style={{width:100,height:4,background:"#ffffff08",borderRadius:2}}>
+                <div style={{height:4,background:gold,borderRadius:2,width:`${Math.round(totalDone/totalTasks*100)}%`}}/>
+              </div>
+            </>
+          )}
+          {isMobile && (
+            <div style={{fontSize:11,color:gold,fontFamily:sm,fontWeight:700}}>
+              {Math.round(totalDone/totalTasks*100)}%
+            </div>
+          )}
+          <div style={{display:"flex",gap:4}}>
+            <button onClick={()=>{setView("phase");setMenuOpen(false);}} style={{padding: isMobile?"5px 10px":"6px 14px",
+              borderRadius:6,cursor:"pointer",fontFamily:sm,fontSize:11,
+              background:view==="phase"?gold:"transparent",
+              color:view==="phase"?bg:muted,border:`1px solid ${view==="phase"?gold:border}`}}>
+              Fases
+            </button>
+            <button onClick={()=>{setView("backlog");setMenuOpen(false);}} style={{padding: isMobile?"5px 10px":"6px 14px",
+              borderRadius:6,cursor:"pointer",fontFamily:sm,fontSize:11,
+              background:view==="backlog"?gold:"transparent",
+              color:view==="backlog"?bg:muted,border:`1px solid ${view==="backlog"?gold:border}`}}>
+              Backlog
+            </button>
           </div>
         </div>
       </div>
 
-      <div style={{display:"flex",flex:1,minHeight:0}}>
-        {/* Sidebar */}
-        {view==="phase"&&(
-          <div style={{width:280,minWidth:280,borderRight:`1px solid ${border}`,overflowY:"auto",padding:"20px 16px"}}>
+      {/* ── Mobile drawer overlay ── */}
+      {isMobile && menuOpen && (
+        <div style={{position:"fixed",inset:0,zIndex:200,display:"flex"}}>
+          {/* Backdrop */}
+          <div onClick={()=>setMenuOpen(false)}
+            style={{position:"absolute",inset:0,background:"#000000CC"}}/>
+          {/* Drawer */}
+          <div style={{position:"relative",width:280,background:"#0D0D0F",
+            borderRight:`1px solid ${border}`,overflowY:"auto",padding:"16px",zIndex:201,
+            animation:"slideIn 0.2s ease"}}>
+            <div style={{fontSize:10,color:muted,fontFamily:sm,letterSpacing:"0.2em",
+              marginBottom:16,paddingLeft:8}}>FASES</div>
             {PHASES.map(phase=>{
-              const done=phase.tasks.filter(t=>checked[t.id]).length;
+              const done = phase.tasks.filter(t=>checked[t.id]).length;
+              return <PhaseCard key={phase.id} phase={phase} done={done} total={phase.tasks.length}
+                active={active===phase.id} onClick={()=>selectPhase(phase.id)}/>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Main layout ── */}
+      <div style={{display:"flex",flex:1,minHeight:0,overflow:"hidden"}}>
+
+        {/* Desktop sidebar */}
+        {!isMobile && view==="phase" && (
+          <div style={{width:280,minWidth:280,borderRight:`1px solid ${border}`,
+            overflowY:"auto",padding:"20px 16px"}}>
+            {PHASES.map(phase=>{
+              const done = phase.tasks.filter(t=>checked[t.id]).length;
               return <PhaseCard key={phase.id} phase={phase} done={done} total={phase.tasks.length}
                 active={active===phase.id} onClick={()=>setActive(phase.id)}/>;
             })}
           </div>
         )}
 
-        {view==="phase"&&activePhase
-          ? <PhaseDetail phase={activePhase} checked={checked} onToggle={toggle}/>
-          : view==="backlog" && <Backlog phases={PHASES} checked={checked} onToggle={toggle}/>
-        }
+        {/* Content */}
+        <div style={{flex:1,overflowY:"auto"}}>
+          {view==="phase" && activePhase
+            ? <PhaseDetail phase={activePhase} checked={checked} onToggle={toggle} isMobile={isMobile}/>
+            : view==="backlog" && <Backlog phases={PHASES} checked={checked} onToggle={toggle}/>
+          }
+        </div>
       </div>
 
-      {/* Footer */}
-      <div style={{borderTop:`1px solid #161618`,padding:"12px 28px",
+      {/* ── Mobile bottom phase nav ── */}
+      {isMobile && view==="phase" && (
+        <div style={{borderTop:`1px solid ${border}`,background:"#0D0D0F",
+          display:"flex",justifyContent:"space-between",alignItems:"center",
+          padding:"10px 16px",gap:8}}>
+          <button
+            onClick={()=>{const i=PHASES.findIndex(p=>p.id===active);if(i>0)setActive(PHASES[i-1].id);}}
+            disabled={active==="f0"}
+            style={{padding:"8px 16px",borderRadius:6,cursor:"pointer",fontFamily:sm,fontSize:12,
+              background:"transparent",color:active==="f0"?"#333":muted,border:`1px solid ${active==="f0"?"#1A1A1A":border}`}}>
+            ← Anterior
+          </button>
+          <span style={{fontSize:11,color:gold,fontFamily:sm,fontWeight:700}}>
+            {PHASES.findIndex(p=>p.id===active)+1} / {PHASES.length}
+          </span>
+          <button
+            onClick={()=>{const i=PHASES.findIndex(p=>p.id===active);if(i<PHASES.length-1)setActive(PHASES[i+1].id);}}
+            disabled={active===`f${PHASES.length-1}`}
+            style={{padding:"8px 16px",borderRadius:6,cursor:"pointer",fontFamily:sm,fontSize:12,
+              background:gold,color:bg,border:"none",fontWeight:700}}>
+            Próxima →
+          </button>
+        </div>
+      )}
+
+      {/* ── Footer ── */}
+      <div style={{borderTop:`1px solid #161618`,padding:"10px 20px",
         display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"#0A0A0C"}}>
-        <span style={{fontSize:10,color:"#2D2D2D",fontFamily:sm,letterSpacing:"0.18em"}}>PROJETO DESENVOLVIDO POR</span>
-        <span style={{fontSize:10,color:"#2D2D2D",fontFamily:sm}}>·</span>
-        <span style={{fontSize:11,fontFamily:sm,color:"#3A3A3A",fontWeight:600,letterSpacing:"0.2em"}}>PAJARO MARKETING</span>
+        <span style={{fontSize:9,color:"#2D2D2D",fontFamily:sm,letterSpacing:"0.15em"}}>PROJETO DESENVOLVIDO POR</span>
+        <span style={{fontSize:9,color:"#2D2D2D",fontFamily:sm}}>·</span>
+        <span style={{fontSize:10,fontFamily:sm,color:"#3A3A3A",fontWeight:600,letterSpacing:"0.2em"}}>PAJARO MARKETING</span>
       </div>
     </div>
   );
