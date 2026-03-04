@@ -409,6 +409,10 @@ function Backlog({phases,checked,onToggle}){
 
 
 // ─── APP ──────────────────────────────────────────────────────────
+const globalStyle = document.createElement('style');
+globalStyle.innerHTML = '* { margin: 0; padding: 0; box-sizing: border-box; } body { background: #0D0D0F; }';
+document.head.appendChild(globalStyle);
+
 export default function App(){
   const [active,setActive]=useState("f0");
   const [checked,setChecked]=useState({});
